@@ -203,7 +203,7 @@ store-deploy-plugin/
 ### Quick Start
 
 ```
-/store-deploy full both
+/store-deploy:store-deploy full both
 ```
 
 This runs the entire pipeline for both platforms.
@@ -211,26 +211,26 @@ This runs the entire pipeline for both platforms.
 ### Individual Actions
 
 ```
-/store-deploy setup          # First-time project setup
-/store-deploy build ios      # Build iOS only
-/store-deploy screenshots    # Generate & process screenshots
-/store-deploy metadata       # Generate & upload metadata
-/store-deploy store-forms    # Fill store forms via browser
-/store-deploy submit android # Submit Android binary
-/store-deploy admob          # Set up AdMob
-/store-deploy status         # Check deployment status
+/store-deploy:store-deploy setup          # First-time project setup
+/store-deploy:store-deploy build ios      # Build iOS only
+/store-deploy:store-deploy screenshots    # Generate & process screenshots
+/store-deploy:store-deploy metadata       # Generate & upload metadata
+/store-deploy:store-deploy store-forms    # Fill store forms via browser
+/store-deploy:store-deploy submit android # Submit Android binary
+/store-deploy:store-deploy admob          # Set up AdMob
+/store-deploy:store-deploy status         # Check deployment status
 ```
 
 ### Or Use Sub-Skills Directly
 
 ```
-/store-setup
-/store-build ios --local
-/store-screenshots --ai
-/store-metadata both
-/store-forms ios
-/store-submit both
-/store-admob ios
+/store-deploy:store-setup
+/store-deploy:store-build ios --local
+/store-deploy:store-screenshots --ai
+/store-deploy:store-metadata both
+/store-deploy:store-forms ios
+/store-deploy:store-submit both
+/store-deploy:store-admob ios
 ```
 
 ## CLI vs Browser Automation
@@ -265,7 +265,7 @@ ls -la fastlane/keys/AuthKey_6FD6879KFW.p8
 ```
 
 ### Google Play metadata upload fails
-First AAB must be uploaded before metadata. Run `/store-submit android` first.
+First AAB must be uploaded before metadata. Run `/store-deploy:store-submit android` first.
 
 ### Simulator screenshots fail
 ```bash
@@ -274,14 +274,6 @@ xcrun simctl list devices available | grep "Pro Max"
 
 ### Pillow font error
 macOS system fonts are auto-detected. For custom fonts, set the `font` field in `screenshots/config.json` to an absolute path.
-
-## Version History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 3.0.0 | 2026-03-27 | Plugin architecture: 8 sub-skills, 2 subagents, parallel platform processing. CLI-first with agent-browser fallback for store forms. |
-| 2.0.0 | 2026-03-27 | Full rewrite as single skill: 9 actions, Pillow screenshot processing, Playwright MCP store forms, AdMob. |
-| 1.0.0 | 2026-03-26 | Initial release: basic EAS + Fastlane integration. |
 
 ## Links
 
