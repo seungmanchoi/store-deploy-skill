@@ -1,139 +1,115 @@
-# App Store Publisher Skill
+# Store Deploy Plugin
 
-Expo + React Native 앱을 App Store / Google Play에 배포하기 위한 Claude Code 스킬입니다.
-빌드부터 스크린샷 생성, 메타데이터 업로드, 스토어 폼 작성, AdMob 설정까지 전체 파이프라인을 자동화합니다.
+[![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://code.claude.com)
+[![Expo](https://img.shields.io/badge/Expo-SDK_54-000020)](https://expo.dev)
+[![Fastlane](https://img.shields.io/badge/Fastlane-2.x-00b0ff)](https://fastlane.tools)
+[![EAS](https://img.shields.io/badge/EAS_Build-CLI-4630eb)](https://docs.expo.dev/eas/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## 주요 기능
+A Claude Code plugin that automates the **entire** Expo/React Native app store deployment pipeline — from build to live store listing.
 
-| 액션 | 설명 |
-|------|------|
-| `setup` | 선행 도구 설치 & fastlane 구조 자동 생성 |
-| `build` | EAS 빌드 (로컬/클라우드, iOS/Android) |
-| `screenshots` | 시뮬레이터 캡처 or AI 생성 + Pillow 후처리 (리사이즈 + 텍스트 오버레이) |
-| `metadata` | AI 기반 메타데이터 생성 & fastlane으로 업로드 |
-| `store-forms` | 브라우저 자동화로 연령등급, 개인정보, 데이터 안전 등 스토어 폼 입력 |
-| `submit` | EAS Submit으로 바이너리 제출 |
-| `admob` | AdMob 앱 생성 & 광고 단위 설정 (브라우저 자동화) |
-| `full` | 위 모든 작업 순차 실행 |
-| `status` | 현재 배포 상태 확인 |
+## What It Does
 
-## 설치
+One command (`/store-deploy full`) handles everything:
 
-```bash
-cd /Users/seungmanchoi/works/store-deploy-skill
-chmod +x install.sh
-./install.sh
+```
+Build → Screenshots → Metadata → Submit → Store Forms → Done
 ```
 
-설치 완료 후:
-- `~/.claude/skills/store-deploy/SKILL.md` 심볼릭 링크 생성
-- `~/.claude/commands/store-deploy.md` 심볼릭 링크 생성 (하위 호환)
-- `scripts/` 디렉토리 복사
+| Skill | Description |
+|-------|-------------|
+| `/store-deploy` | Main orchestrator — routes to sub-skills or runs full pipeline |
+| `/store-setup` | Install prerequisites, create fastlane structure, configure credentials |
+| `/store-build` | EAS production build (local or cloud, iOS/Android) |
+| `/store-screenshots` | Generate screenshots (simulator, AI, or existing) + resize & text overlay |
+| `/store-metadata` | Generate multilingual metadata + upload via fastlane |
+| `/store-forms` | Browser automation for store forms (age rating, privacy, data safety, etc.) |
+| `/store-submit` | Submit binary via EAS Submit + post-submission metadata upload |
+| `/store-admob` | Create AdMob app + ad units via browser automation |
 
-## 사전 요구사항
+### Parallel Platform Processing
 
-### 필수 도구
+When deploying to both platforms, the plugin uses `deploy-ios` and `deploy-android` subagents to run platform tasks **in parallel**.
 
-| 도구 | 설치 명령 | 용도 |
-|------|----------|------|
-| [EAS CLI](https://docs.expo.dev/eas/) | `npm install -g eas-cli` | Expo 빌드 & 제출 |
-| [Fastlane](https://fastlane.tools/) | `brew install fastlane` | 메타데이터 & 스크린샷 업로드 |
-| [Python 3 + Pillow](https://python-pillow.org/) | `pip3 install Pillow` | 스크린샷 리사이즈 & 텍스트 오버레이 |
-| [agent-browser](https://github.com/vercel-labs/agent-browser) | `brew install agent-browser && agent-browser install` | 스토어 폼 & AdMob 브라우저 자동화 |
+## Installation
 
-### 선택 도구
+### As a Claude Code Plugin
 
-| 도구 | 용도 |
-|------|------|
-| Xcode + iOS Simulator | 시뮬레이터 기반 스크린샷 촬영 |
-| nano-banana-mcp | AI 기반 스크린샷 생성 (Gemini) |
-| Playwright MCP | Claude Code 내 브라우저 자동화 |
+```bash
+# Clone the repo
+git clone https://github.com/seungmanchoi/store-deploy-plugin.git ~/works/store-deploy-plugin
 
-### 인증 정보 (크레덴셜)
+# Register as plugin in Claude Code
+# Add to ~/.claude/plugins/ or use /plugins command
+```
 
-#### iOS (App Store Connect)
+Then add to your Claude Code settings (`~/.claude/settings.json` or project `.claude/settings.json`):
 
-| 항목 | 값 |
-|------|-----|
-| API Key 파일 | `~/works/common/AuthKey_6FD6879KFW.p8` |
+```json
+{
+  "plugins": [
+    "~/works/store-deploy-plugin"
+  ]
+}
+```
+
+### Prerequisites
+
+| Tool | Install | Purpose |
+|------|---------|---------|
+| [EAS CLI](https://docs.expo.dev/eas/) | `npm install -g eas-cli` | Expo builds & submissions |
+| [Fastlane](https://fastlane.tools/) | `brew install fastlane` | Metadata & screenshot upload |
+| [Python 3 + Pillow](https://python-pillow.org/) | `pip3 install Pillow` | Screenshot resize & text overlay |
+| [agent-browser](https://github.com/nicepkg/agent-browser) | `brew install agent-browser && agent-browser install` | Store form & AdMob browser automation |
+
+Optional:
+| Tool | Purpose |
+|------|---------|
+| Xcode + iOS Simulator | Simulator-based screenshot capture |
+| nano-banana-mcp | AI-generated screenshots (Gemini) |
+| Playwright MCP | In-Claude browser automation |
+
+Run `/store-setup` to auto-check and install missing tools.
+
+## Credentials
+
+### iOS (App Store Connect)
+
+| Key | Value |
+|-----|-------|
+| API Key File | `~/works/common/AuthKey_6FD6879KFW.p8` |
 | Key ID | `6FD6879KFW` |
 | Issuer ID | `69a6de87-13e2-47e3-e053-5b8c7c11a4d1` |
 | Apple ID | `blue_eng@hanmail.net` |
 | Team ID | `6Y6T9LPHH3` |
 | ITC Team ID | `117885592` |
 
-#### Android (Google Play)
+### Android (Google Play)
 
-| 항목 | 값 |
-|------|-----|
-| 서비스 계정 JSON | `~/works/common/works-488915-4f58ab8044c4.json` |
-| 서비스 계정 이메일 | `play-store-deploy@works-488915.iam.gserviceaccount.com` |
+| Key | Value |
+|-----|-------|
+| Service Account JSON | `~/works/common/works-488915-4f58ab8044c4.json` |
+| Service Account Email | `play-store-deploy@works-488915.iam.gserviceaccount.com` |
 
-#### AdMob (선택)
+### AdMob (Optional)
 
-AdMob REST API 사용 시 Google OAuth 2.0 설정이 필요합니다:
+For REST API access (instead of browser automation):
+1. Enable AdMob API at [Google API Console](https://console.cloud.google.com/apis)
+2. Create OAuth 2.0 client (Desktop app type)
+3. Save credentials to `~/works/common/admob_credentials.json`
 
-1. [Google API Console](https://console.cloud.google.com/apis) 접속
-2. AdMob API 활성화
-3. OAuth 2.0 클라이언트 ID 생성 (Desktop app 타입)
-4. 클라이언트 ID/Secret을 `~/works/common/admob_credentials.json`에 저장
+## Screenshot Configuration
 
-브라우저 자동화 방식으로도 AdMob 사용 가능하므로, OAuth 설정은 선택사항입니다.
+### Screenshot Generation Methods
 
-## 사용 방법
-
-### 기본 사용
-
-1. Expo 프로젝트 디렉토리로 이동:
-   ```bash
-   cd ~/works/my-app
-   ```
-
-2. Claude Code에서 슬래시 커맨드 실행:
-   ```
-   /store-deploy
-   ```
-
-3. 원하는 액션 선택 (숫자 또는 이름)
-
-### 특정 액션 직접 실행
-
-```
-/store-deploy screenshots
-/store-deploy build ios
-/store-deploy metadata
-/store-deploy full
-```
-
-### 전체 파이프라인 (원스톱)
-
-```
-/store-deploy full
-```
-
-순서: setup → build → screenshots → metadata → submit → store-forms → summary
-
-## 스크린샷 설정
-
-### config.json
-
-프로젝트 루트에 `screenshots/config.json`을 생성하여 텍스트 오버레이를 설정합니다:
+Configure your preferred method in `screenshots/config.json`:
 
 ```json
 {
+  "method": "simulator",
   "texts": {
-    "en-US": [
-      "Track Your Calories",
-      "Easy Food Logging",
-      "Beautiful Charts",
-      "Set Your Goals"
-    ],
-    "ko": [
-      "칼로리를 추적하세요",
-      "간편한 음식 기록",
-      "아름다운 차트",
-      "목표를 설정하세요"
-    ]
+    "en-US": ["Track Calories", "Log Food", "View Charts", "Set Goals"],
+    "ko": ["칼로리 추적", "음식 기록", "차트 보기", "목표 설정"]
   },
   "fontSize": 56,
   "fontColor": "#FFFFFF",
@@ -142,114 +118,183 @@ AdMob REST API 사용 시 Google OAuth 2.0 설정이 필요합니다:
 }
 ```
 
-### 스크린샷 크기
+**`method` options:**
 
-| 플랫폼 | 디바이스 | 크기 (px) |
-|--------|---------|-----------|
-| iOS | iPhone 6.7" (필수) | 1290 × 2796 |
-| iOS | iPhone 6.5" (선택) | 1242 × 2688 |
-| Android | Phone (권장) | 1080 × 1920 |
+| Method | Description | When to Use |
+|--------|-------------|-------------|
+| `simulator` | Capture from iOS Simulator / Android Emulator | Real app screenshots, most accurate |
+| `ai` | Generate via nano-banana-mcp (Gemini) | No simulator available, marketing-style images |
+| `pillow` | Post-process existing images only | Already have raw screenshots |
 
-### 디렉토리 구조
+If `method` is not set, the skill will ask which approach to use.
 
-```
-{project}/
-  screenshots/
-    config.json          # 텍스트 오버레이 설정
-    ios/                 # iOS 원본 스크린샷
-    android/             # Android 원본 스크린샷
-  fastlane/
-    screenshots/         # 처리된 iOS 스크린샷 (deliver 형식)
-      en-US/
-      ko/
-    metadata/
-      en-US/             # iOS 메타데이터
-      ko/
-      android/           # Android 메타데이터 + 스크린샷
-        en-US/
-          images/phoneScreenshots/
-        ko-KR/
-          images/phoneScreenshots/
+### Screenshot Sizes
+
+| Platform | Device | Dimensions |
+|----------|--------|------------|
+| iOS (required) | iPhone 6.7" | 1290 × 2796 px |
+| iOS (optional) | iPhone 6.5" | 1242 × 2688 px |
+| Android (recommended) | Phone | 1080 × 1920 px |
+
+### Custom Fonts
+
+Set `"font"` to an absolute path for custom font overlay:
+```json
+{
+  "font": "/Users/you/fonts/NotoSansKR-Bold.ttf"
+}
 ```
 
-## 스크린샷 후처리 스크립트 직접 사용
+Default: macOS system fonts (Arial Bold, Apple SD Gothic Neo).
 
-```bash
-# 전체 처리 (iOS + Android)
-python3 scripts/process_screenshots.py --project /path/to/your/app
+## Directory Structure
 
-# iOS만
-python3 scripts/process_screenshots.py --platform ios --project /path/to/your/app
-
-# Android만
-python3 scripts/process_screenshots.py --platform android --project /path/to/your/app
-```
-
-## Fastlane 자동 설정
-
-`/store-deploy setup` 실행 시 프로젝트에 다음이 자동 생성됩니다:
+After `/store-setup`, your project will have:
 
 ```
-fastlane/
-  Appfile          # 앱 식별자 & 팀 정보
-  Fastfile         # iOS/Android 레인 (메타데이터, 스크린샷, 바이너리 업로드)
-  Deliverfile      # iOS deliver 설정
-  keys/            # 심볼릭 링크 (~/works/common/ → fastlane/keys/)
-    AuthKey_6FD6879KFW.p8
-    play-store-service-account.json
-  metadata/        # 메타데이터 파일 구조
+your-expo-app/
+├── fastlane/
+│   ├── Appfile
+│   ├── Fastfile
+│   ├── Deliverfile
+│   ├── keys/                              # Symlinks to ~/works/common/
+│   │   ├── AuthKey_6FD6879KFW.p8
+│   │   └── play-store-service-account.json
+│   ├── metadata/
+│   │   ├── en-US/                         # iOS metadata
+│   │   ├── ko/
+│   │   └── android/
+│   │       ├── en-US/                     # Android metadata
+│   │       └── ko-KR/
+│   └── screenshots/
+│       ├── en-US/                         # Processed iOS screenshots
+│       └── ko/
+├── screenshots/
+│   ├── config.json                        # Screenshot settings
+│   ├── ios/                               # Raw iOS screenshots
+│   └── android/                           # Raw Android screenshots
+└── eas.json                               # Updated with submit profiles
 ```
 
-## 스토어 폼 자동 입력
+## Plugin Structure
 
-`store-forms` 액션은 Playwright MCP 또는 agent-browser를 통해 다음을 자동 입력합니다:
+```
+store-deploy-plugin/
+├── CLAUDE.md                              # Plugin rules & credential refs
+├── README.md                              # This file
+├── skills/
+│   ├── store-deploy/SKILL.md              # Main orchestrator
+│   ├── store-setup/SKILL.md               # Prerequisites & fastlane setup
+│   ├── store-build/SKILL.md               # EAS build
+│   ├── store-screenshots/SKILL.md         # Screenshot generation & processing
+│   ├── store-metadata/SKILL.md            # Metadata generation & upload
+│   ├── store-forms/SKILL.md               # Browser automation for store forms
+│   ├── store-submit/SKILL.md              # Binary submission
+│   └── store-admob/SKILL.md               # AdMob setup
+├── agents/
+│   ├── deploy-ios.md                      # iOS parallel deployment agent
+│   └── deploy-android.md                  # Android parallel deployment agent
+└── scripts/
+    └── process_screenshots.py             # Pillow screenshot processor
+```
 
-### iOS (App Store Connect)
-- 연령 등급 질문지
-- 개인정보 처리방침 URL
-- 앱 심사 정보 (연락처, 테스트 계정)
-- 수출 규정 준수
-- IDFA 사용 여부
-- 개인정보 수집 세부사항
+## Usage
 
-### Android (Google Play Console)
-- 콘텐츠 등급 질문지
-- 데이터 안전 양식
-- 대상 연령층 설정
-- 광고 포함 여부
+### Quick Start
 
-**사전 조건**: 브라우저에서 App Store Connect / Google Play Console에 로그인된 상태여야 합니다.
+```
+/store-deploy full both
+```
 
-## 트러블슈팅
+This runs the entire pipeline for both platforms.
 
-### EAS 인증 오류
+### Individual Actions
+
+```
+/store-deploy setup          # First-time project setup
+/store-deploy build ios      # Build iOS only
+/store-deploy screenshots    # Generate & process screenshots
+/store-deploy metadata       # Generate & upload metadata
+/store-deploy store-forms    # Fill store forms via browser
+/store-deploy submit android # Submit Android binary
+/store-deploy admob          # Set up AdMob
+/store-deploy status         # Check deployment status
+```
+
+### Or Use Sub-Skills Directly
+
+```
+/store-setup
+/store-build ios --local
+/store-screenshots --ai
+/store-metadata both
+/store-forms ios
+/store-submit both
+/store-admob ios
+```
+
+## CLI vs Browser Automation
+
+The plugin follows a **CLI-first** approach:
+
+| Task | Method | Tool |
+|------|--------|------|
+| Build | CLI | `eas build` |
+| Submit binary | CLI | `eas submit` |
+| Upload metadata | CLI | `fastlane deliver` / `supply` |
+| Upload screenshots | CLI | `fastlane deliver` / `supply` |
+| Age rating | **Browser** | Playwright MCP / agent-browser |
+| Privacy details | **Browser** | Playwright MCP / agent-browser |
+| Data safety form | **Browser** | Playwright MCP / agent-browser |
+| Content rating | **Browser** | Playwright MCP / agent-browser |
+| Export compliance | **Browser** | Playwright MCP / agent-browser |
+| IDFA declaration | **Browser** | Playwright MCP / agent-browser |
+| AdMob setup | **Browser** | Playwright MCP / agent-browser |
+
+## Troubleshooting
+
+### EAS authentication error
 ```bash
 eas login
 ```
 
-### Fastlane Apple ID 인증 실패
-API Key 방식을 사용하므로 비밀번호 인증 불필요. `fastlane/keys/AuthKey_6FD6879KFW.p8` 심볼릭 링크가 올바른지 확인.
-
-### Google Play 메타데이터 업로드 실패
-첫 AAB/APK가 업로드되기 전에는 메타데이터를 업로드할 수 없음. `submit` → `metadata` 순서로 실행.
-
-### 시뮬레이터 스크린샷 실패
+### Fastlane Apple ID auth failure
+The plugin uses API Key authentication (not password). Verify the symlink:
 ```bash
-xcrun simctl list devices available
-# iPhone 16 Pro Max가 없으면:
-xcodebuild -downloadPlatform iOS
+ls -la fastlane/keys/AuthKey_6FD6879KFW.p8
 ```
 
-### Pillow 폰트 오류
-macOS 시스템 폰트를 자동 탐색함. 커스텀 폰트 사용 시 `screenshots/config.json`의 `font` 필드에 절대 경로 지정.
+### Google Play metadata upload fails
+First AAB must be uploaded before metadata. Run `/store-submit android` first.
 
-## 관련 링크
+### Simulator screenshots fail
+```bash
+xcrun simctl list devices available | grep "Pro Max"
+```
+
+### Pillow font error
+macOS system fonts are auto-detected. For custom fonts, set the `font` field in `screenshots/config.json` to an absolute path.
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 3.0.0 | 2026-03-27 | Plugin architecture: 8 sub-skills, 2 subagents, parallel platform processing. CLI-first with agent-browser fallback for store forms. |
+| 2.0.0 | 2026-03-27 | Full rewrite as single skill: 9 actions, Pillow screenshot processing, Playwright MCP store forms, AdMob. |
+| 1.0.0 | 2026-03-26 | Initial release: basic EAS + Fastlane integration. |
+
+## Links
 
 - [App Store Connect](https://appstoreconnect.apple.com)
 - [Google Play Console](https://play.google.com/console)
 - [AdMob Console](https://apps.admob.com)
-- [EAS Build 문서](https://docs.expo.dev/build/introduction/)
-- [EAS Submit 문서](https://docs.expo.dev/submit/introduction/)
-- [Fastlane deliver 문서](https://docs.fastlane.tools/actions/deliver/)
-- [Fastlane supply 문서](https://docs.fastlane.tools/actions/supply/)
-- [Claude Code Skills 문서](https://code.claude.com/docs/skills)
+- [EAS Build Docs](https://docs.expo.dev/build/introduction/)
+- [EAS Submit Docs](https://docs.expo.dev/submit/introduction/)
+- [Fastlane deliver](https://docs.fastlane.tools/actions/deliver/)
+- [Fastlane supply](https://docs.fastlane.tools/actions/supply/)
+- [Claude Code Skills](https://code.claude.com/docs/skills)
+- [Claude Code Plugins](https://code.claude.com/docs/plugins)
+
+## License
+
+MIT
