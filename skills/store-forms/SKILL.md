@@ -1,89 +1,104 @@
 ---
 name: store-forms
-description: "Fill App Store Connect and Google Play Console forms that cannot be automated via CLI: age rating, privacy policy, data safety, export compliance, IDFA, content rating, target audience. Uses Playwright MCP or agent-browser."
+description: "Fill App Store Connect and Google Play Console forms via Python+Playwright automation. Handles age rating, privacy, data safety, content rating, export compliance, IDFA, target audience, and ads declaration."
 argument-hint: "[ios|android|both]"
-disable-model-invocation: true
 ---
 
-This skill fills store forms that fastlane/EAS cannot handle, using browser automation.
+This skill fills store forms using **Python scripts with Playwright** (NOT Playwright MCP).
+Zero LLM token cost for browser automation — the scripts run deterministically.
 
-## Prerequisites
+## Step 1: Ensure Credentials
 
-Ask the developer:
-> "Please log into the following in your browser, then tell me when ready:
-> - App Store Connect: https://appstoreconnect.apple.com
-> - Google Play Console: https://play.google.com/console"
+Run the credential manager to check/setup saved credentials:
 
-## Automation Strategy
+```bash
+python3 ${PLUGIN_DIR}/scripts/credentials_manager.py --show
+```
 
-**Try Playwright MCP first** (`mcp__playwright__browser_*`). If unavailable, fall back to **agent-browser CLI**.
+If not configured:
+```bash
+python3 ${PLUGIN_DIR}/scripts/credentials_manager.py --setup
+```
 
-For each form:
-1. Navigate to the page
-2. Snapshot to understand current state
-3. Fill form fields based on app analysis
-4. Confirm and save
+Credentials are saved globally at `~/.store-deploy/credentials.json` and reused across projects.
 
-## iOS Forms (App Store Connect)
+## Step 2: Analyze App for Form Answers
 
-### 1. Age Rating
-- Navigate to App Information > Age Rating
-- Answer questionnaire based on app features:
-  - Check `package.json` for content-related dependencies
-  - Most utility/productivity apps: "None" for all categories
-  - Apps with UGC: select appropriate levels
-- Submit ratings
+Read the project to determine form answers:
 
-### 2. App Privacy
-- Navigate to App Privacy section
-- Enter privacy policy URL (ask developer if not known)
-- Analyze `package.json` for data collection:
-  - AdMob/analytics SDKs → advertising/usage data
-  - Local-only storage → minimal declarations
-  - Network requests → check what data is transmitted
-- Fill data type declarations
+1. Read `app.json` / `app.config.ts` — extract bundleIdentifier, package name
+2. Read `package.json` — check for ad SDKs (`react-native-google-mobile-ads`, `expo-ads-admob`), analytics, UGC features
+3. Check `app.json` for `ITSAppUsesNonExemptEncryption`
 
-### 3. App Review Information
-- Navigate to version's App Review section
-- Fill: First Name: Seungman, Last Name: Choi, Email: blueng.choi@gmail.com
-- If login required: ask developer for test credentials
-- Add review notes if needed
+Generate a `forms_config.json` in the project root:
 
-### 4. Export Compliance
-- Check `app.json` for `ITSAppUsesNonExemptEncryption`
-- If not set / false: "No" for encryption
-- If HTTPS only: select standard encryption exemption
+```json
+{
+  "has_ads": false,
+  "has_ugc": false,
+  "has_encryption": false,
+  "has_violence": false,
+  "has_sexual": false,
+  "has_profanity": false,
+  "has_drugs": false,
+  "has_gambling": false,
+  "has_iap": false,
+  "privacy_url": "https://example.com/privacy",
+  "data_collection": [],
+  "review_notes": "",
+  "iarc_category": "utility",
+  "min_age": 18
+}
+```
 
-### 5. IDFA Declaration
-- Check `package.json` for ad SDKs (react-native-google-mobile-ads, expo-ads-admob)
-- Ad SDKs found → declare IDFA for advertising
-- No ad SDKs → no IDFA usage
+Set `has_ads: true` if ad SDK found. Set `data_collection: ["analytics", "advertising"]` as appropriate.
 
-## Android Forms (Google Play Console)
+## Step 3: Run Automation Scripts
 
-### 6. Content Rating (IARC)
-- Navigate to Policy > Content rating
-- Start IARC questionnaire
-- Answer based on app content analysis (violence: none, sexual: none, language: none for most apps)
-- Submit for rating
+**IMPORTANT**: Tell the user:
+> "Browser will open. Please log into the store console if prompted. The script will fill forms automatically."
 
-### 7. Data Safety
-- Navigate to Policy > Data safety
-- Analyze app dependencies and permissions
-- Declare: data types collected, sharing, encryption, deletion options
-- Fill form section by section
+### iOS:
+```bash
+python3 ${PLUGIN_DIR}/scripts/store_forms_ios.py \
+  --app-id {ASC_APP_ID} \
+  --bundle-id {BUNDLE_ID} \
+  --config forms_config.json \
+  --project .
+```
 
-### 8. Target Audience & Content
-- Navigate to Policy > Target audience
-- Set "18 and over" for general apps (or as appropriate)
-- Declare ad presence based on SDK analysis
+### Android:
+```bash
+python3 ${PLUGIN_DIR}/scripts/store_forms_android.py \
+  --package-name {PACKAGE_NAME} \
+  --config forms_config.json \
+  --project .
+```
 
-### 9. Ads Declaration
-- Check for AdMob/ad SDKs in package.json
-- Found → "Yes, my app contains ads"
-- Not found → "No"
+### Run specific forms only:
+```bash
+# iOS: only age_rating and review_info
+python3 ${PLUGIN_DIR}/scripts/store_forms_ios.py --app-id 123 --forms age_rating,review_info
 
-## Report
+# Android: only content_rating and ads_declaration
+python3 ${PLUGIN_DIR}/scripts/store_forms_android.py --package-name com.x.y --forms content_rating,ads_declaration
+```
+
+### Dry run (preview without browser):
+```bash
+python3 ${PLUGIN_DIR}/scripts/store_forms_ios.py --app-id 123 --config forms_config.json --dry-run
+```
+
+## Step 4: Handle Failures
+
+If a form step fails (selector changed, page layout updated):
+- The script pauses and asks the user to complete that step manually
+- Error screenshots are saved to `~/.store-deploy/error-screenshots/`
+- The script continues to the next form after manual completion
+
+If selectors need updating, edit the Python scripts directly in `${PLUGIN_DIR}/scripts/`.
+
+## Step 5: Report
 
 ```
 Store Forms Complete
@@ -101,3 +116,22 @@ Android:
 - [x] Target Audience
 - [x] Ads Declaration
 ```
+
+## Available iOS Forms
+
+| Form | CLI name | Description |
+|------|----------|-------------|
+| Age Rating | `age_rating` | Violence, sexual content, profanity questionnaire |
+| App Privacy | `app_privacy` | Privacy policy URL + data collection declarations |
+| Review Info | `review_info` | App review contact info (auto-filled from credentials) |
+| Export Compliance | `export_compliance` | Encryption usage declaration |
+| IDFA | `idfa` | Advertising identifier declaration |
+
+## Available Android Forms
+
+| Form | CLI name | Description |
+|------|----------|-------------|
+| Content Rating | `content_rating` | IARC questionnaire |
+| Data Safety | `data_safety` | Data collection, sharing, encryption declarations |
+| Target Audience | `target_audience` | Age group selection |
+| Ads Declaration | `ads_declaration` | Whether app contains ads |

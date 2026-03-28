@@ -37,3 +37,9 @@ service-account.json
 .env
 .env.local
 .env.*.local
+
+# Store Deploy — local credentials and browser data
+store-deploy.json
+forms_config.json
+__pycache__/
+*.pyc
